@@ -18,8 +18,6 @@
 #include <GL/gl.h>
 #endif
 
-#include <OpenGL/glu.h>
-
 #ifdef __APPLE__
 #include <GLUT/glut.h>
 #else
@@ -33,18 +31,19 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include "shader_utils.h"
-
-#define GROUND_SIZE 20
+#include "mesh.h"
+#include "mesh_utils.h"
 
 int screen_width=800, screen_height=600;
-GLuint program;
+bool compute_arcball;
+int last_mx = 0, last_my = 0, cur_mx = 0, cur_my = 0;
+int arcball_on = false;
+
 GLint attribute_v_coord = -1;
 GLint attribute_v_normal = -1;
 GLint uniform_m = -1, uniform_v = -1, uniform_p = -1;
 GLint uniform_m_3x3_inv_transp = -1, uniform_v_inv = -1;
-bool compute_arcball;
-int last_mx = 0, last_my = 0, cur_mx = 0, cur_my = 0;
-int arcball_on = false;
+
 
 using namespace std;
 
@@ -57,346 +56,7 @@ int last_ticks = 0;
 static unsigned int fps_start = glutGet(GLUT_ELAPSED_TIME);
 static unsigned int fps_frames = 0;
 
-class Mesh {
-private:
-  GLuint vbo_vertices, vbo_normals, ibo_elements;
-public:
-  vector<glm::vec4> vertices;
-  vector<glm::vec3> normals;
-  vector<GLushort> elements;
-  glm::mat4 object2world;
-
-  Mesh() : vbo_vertices(0), vbo_normals(0), ibo_elements(0), object2world(glm::mat4(1)) {}
-  ~Mesh() {
-    if (vbo_vertices != 0)
-      glDeleteBuffers(1, &vbo_vertices);
-    if (vbo_normals != 0)
-      glDeleteBuffers(1, &vbo_normals);
-    if (ibo_elements != 0)
-      glDeleteBuffers(1, &ibo_elements);
-  }
-
-  /**
-   * Store object vertices, normals and/or elements in graphic card
-   * buffers
-   */
-  void upload() {
-    if (this->vertices.size() > 0) {
-      glGenBuffers(1, &this->vbo_vertices);
-      glBindBuffer(GL_ARRAY_BUFFER, this->vbo_vertices);
-      glBufferData(GL_ARRAY_BUFFER, this->vertices.size() * sizeof(this->vertices[0]),
-           this->vertices.data(), GL_STATIC_DRAW);
-    }
-
-    if (this->normals.size() > 0) {
-      glGenBuffers(1, &this->vbo_normals);
-      glBindBuffer(GL_ARRAY_BUFFER, this->vbo_normals);
-      glBufferData(GL_ARRAY_BUFFER, this->normals.size() * sizeof(this->normals[0]),
-           this->normals.data(), GL_STATIC_DRAW);
-    }
-
-    if (this->elements.size() > 0) {
-      glGenBuffers(1, &this->ibo_elements);
-      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->ibo_elements);
-      glBufferData(GL_ELEMENT_ARRAY_BUFFER, this->elements.size() * sizeof(this->elements[0]),
-           this->elements.data(), GL_STATIC_DRAW);
-    }
-  }
-
-  /**
-   * Draw the object
-   */
-  void draw() {
-    if (this->vbo_vertices != 0) {
-      glEnableVertexAttribArray(attribute_v_coord);
-      glBindBuffer(GL_ARRAY_BUFFER, this->vbo_vertices);
-      glVertexAttribPointer(
-        attribute_v_coord,  // attribute
-        4,                  // number of elements per vertex, here (x,y,z,w)
-        GL_FLOAT,           // the type of each element
-        GL_FALSE,           // take our values as-is
-        0,                  // no extra data between each position
-        0                   // offset of first element
-      );
-    }
-
-    if (this->vbo_normals != 0) {
-      glEnableVertexAttribArray(attribute_v_normal);
-      glBindBuffer(GL_ARRAY_BUFFER, this->vbo_normals);
-      glVertexAttribPointer(
-        attribute_v_normal, // attribute
-        3,                  // number of elements per vertex, here (x,y,z)
-        GL_FLOAT,           // the type of each element
-        GL_FALSE,           // take our values as-is
-        0,                  // no extra data between each position
-        0                   // offset of first element
-      );
-    }
-
-    /* Apply object's transformation matrix */
-    glUniformMatrix4fv(uniform_m, 1, GL_FALSE, glm::value_ptr(this->object2world));
-    /* Transform normal vectors with transpose of inverse of upper left
-       3x3 model matrix (ex-gl_NormalMatrix): */
-    glm::mat3 m_3x3_inv_transp = glm::transpose(glm::inverse(glm::mat3(this->object2world)));
-    glUniformMatrix3fv(uniform_m_3x3_inv_transp, 1, GL_FALSE, glm::value_ptr(m_3x3_inv_transp));
-
-    /* Push each element in buffer_vertices to the vertex shader */
-    if (this->ibo_elements != 0) {
-      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->ibo_elements);
-      int size;  glGetBufferParameteriv(GL_ELEMENT_ARRAY_BUFFER, GL_BUFFER_SIZE, &size);
-      glDrawElements(GL_TRIANGLES, size/sizeof(GLushort), GL_UNSIGNED_SHORT, 0);
-    } else {
-      glDrawArrays(GL_TRIANGLES, 0, this->vertices.size());
-    }
-
-    if (this->vbo_normals != 0)
-      glDisableVertexAttribArray(attribute_v_normal);
-    if (this->vbo_vertices != 0)
-      glDisableVertexAttribArray(attribute_v_coord);
-  }
-
-  /**
-   * Draw object bounding box
-   */
-  void draw_bbox() {
-    if (this->vertices.size() == 0)
-      return;
-
-    // Cube 1x1x1, centered on origin
-    GLfloat vertices[] = {
-      -0.5, -0.5, -0.5, 1.0,
-       0.5, -0.5, -0.5, 1.0,
-       0.5,  0.5, -0.5, 1.0,
-      -0.5,  0.5, -0.5, 1.0,
-      -0.5, -0.5,  0.5, 1.0,
-       0.5, -0.5,  0.5, 1.0,
-       0.5,  0.5,  0.5, 1.0,
-      -0.5,  0.5,  0.5, 1.0,
-    };
-    GLuint vbo_vertices;
-    glGenBuffers(1, &vbo_vertices);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo_vertices);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    GLushort elements[] = {
-      0, 1, 2, 3,
-      4, 5, 6, 7,
-      0, 4, 1, 5, 2, 6, 3, 7
-    };
-    GLuint ibo_elements;
-    glGenBuffers(1, &ibo_elements);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo_elements);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(elements), elements, GL_STATIC_DRAW);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-    GLfloat
-      min_x, max_x,
-      min_y, max_y,
-      min_z, max_z;
-    min_x = max_x = this->vertices[0].x;
-    min_y = max_y = this->vertices[0].y;
-    min_z = max_z = this->vertices[0].z;
-    for (unsigned int i = 0; i < this->vertices.size(); i++) {
-      if (this->vertices[i].x < min_x) min_x = this->vertices[i].x;
-      if (this->vertices[i].x > max_x) max_x = this->vertices[i].x;
-      if (this->vertices[i].y < min_y) min_y = this->vertices[i].y;
-      if (this->vertices[i].y > max_y) max_y = this->vertices[i].y;
-      if (this->vertices[i].z < min_z) min_z = this->vertices[i].z;
-      if (this->vertices[i].z > max_z) max_z = this->vertices[i].z;
-    }
-    glm::vec3 size = glm::vec3(max_x-min_x, max_y-min_y, max_z-min_z);
-    glm::vec3 center = glm::vec3((min_x+max_x)/2, (min_y+max_y)/2, (min_z+max_z)/2);
-    glm::mat4 transform = glm::scale(glm::mat4(1), size) * glm::translate(glm::mat4(1), center);
-
-    /* Apply object's transformation matrix */
-    glm::mat4 m = this->object2world * transform;
-    glUniformMatrix4fv(uniform_m, 1, GL_FALSE, glm::value_ptr(m));
-
-    glBindBuffer(GL_ARRAY_BUFFER, vbo_vertices);
-    glEnableVertexAttribArray(attribute_v_coord);
-    glVertexAttribPointer(
-      attribute_v_coord,  // attribute
-      4,                  // number of elements per vertex, here (x,y,z,w)
-      GL_FLOAT,           // the type of each element
-      GL_FALSE,           // take our values as-is
-      0,                  // no extra data between each position
-      0                   // offset of first element
-    );
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo_elements);
-    glDrawElements(GL_LINE_LOOP, 4, GL_UNSIGNED_SHORT, 0);
-    glDrawElements(GL_LINE_LOOP, 4, GL_UNSIGNED_SHORT, (GLvoid*)(4*sizeof(GLushort)));
-    glDrawElements(GL_LINES, 8, GL_UNSIGNED_SHORT, (GLvoid*)(8*sizeof(GLushort)));
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-    glDisableVertexAttribArray(attribute_v_coord);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    glDeleteBuffers(1, &vbo_vertices);
-    glDeleteBuffers(1, &ibo_elements);
-  }
-};
 Mesh ground, main_object, light_bbox;
-
-
-void load_obj(const char* filename, Mesh* mesh) {
-  ifstream in(filename, ios::in);
-  if (!in) { cerr << "Cannot open " << filename << endl; exit(1); }
-  vector<int> nb_seen;
-
-  string line;
-  while (getline(in, line)) {
-    if (line.substr(0,2) == "v ") {
-      istringstream s(line.substr(2));
-      glm::vec4 v; s >> v.x; s >> v.y; s >> v.z; v.w = 1.0;
-      mesh->vertices.push_back(v);
-    }  else if (line.substr(0,2) == "f ") {
-      istringstream s(line.substr(2));
-      GLushort a,b,c;
-      s >> a; s >> b; s >> c;
-      a--; b--; c--;
-      mesh->elements.push_back(a); mesh->elements.push_back(b); mesh->elements.push_back(c);
-    }
-    else if (line[0] == '#') { /* ignoring this line */ }
-    else { /* ignoring this line */ }
-  }
-
-  mesh->normals.resize(mesh->vertices.size(), glm::vec3(0.0, 0.0, 0.0));
-  nb_seen.resize(mesh->vertices.size(), 0);
-  for (unsigned int i = 0; i < mesh->elements.size(); i+=3) {
-    GLushort ia = mesh->elements[i];
-    GLushort ib = mesh->elements[i+1];
-    GLushort ic = mesh->elements[i+2];
-    glm::vec3 normal = glm::normalize(glm::cross(
-      glm::vec3(mesh->vertices[ib]) - glm::vec3(mesh->vertices[ia]),
-      glm::vec3(mesh->vertices[ic]) - glm::vec3(mesh->vertices[ia])));
-
-    int v[3];  v[0] = ia;  v[1] = ib;  v[2] = ic;
-    for (int j = 0; j < 3; j++) {
-      GLushort cur_v = v[j];
-      nb_seen[cur_v]++;
-      if (nb_seen[cur_v] == 1) {
-    mesh->normals[cur_v] = normal;
-      } else {
-    // average
-    mesh->normals[cur_v].x = mesh->normals[cur_v].x * (1.0 - 1.0/nb_seen[cur_v]) + normal.x * 1.0/nb_seen[cur_v];
-    mesh->normals[cur_v].y = mesh->normals[cur_v].y * (1.0 - 1.0/nb_seen[cur_v]) + normal.y * 1.0/nb_seen[cur_v];
-    mesh->normals[cur_v].z = mesh->normals[cur_v].z * (1.0 - 1.0/nb_seen[cur_v]) + normal.z * 1.0/nb_seen[cur_v];
-    mesh->normals[cur_v] = glm::normalize(mesh->normals[cur_v]);
-      }
-    }
-  }
-}
-
-int init_resources(char* model_filename, char* vshader_filename, char* fshader_filename)
-{
-  load_obj(model_filename, &main_object);
-  // mesh position initialized in init_view()
-
-  for (int i = -GROUND_SIZE/2; i < GROUND_SIZE/2; i++) {
-    for (int j = -GROUND_SIZE/2; j < GROUND_SIZE/2; j++) {
-      ground.vertices.push_back(glm::vec4(i,   0.0,  j+1, 1.0));
-      ground.vertices.push_back(glm::vec4(i+1, 0.0,  j+1, 1.0));
-      ground.vertices.push_back(glm::vec4(i,   0.0,  j,   1.0));
-      ground.vertices.push_back(glm::vec4(i,   0.0,  j,   1.0));
-      ground.vertices.push_back(glm::vec4(i+1, 0.0,  j+1, 1.0));
-      ground.vertices.push_back(glm::vec4(i+1, 0.0,  j,   1.0));
-      for (unsigned int k = 0; k < 6; k++)
-    ground.normals.push_back(glm::vec3(0.0, 1.0, 0.0));
-    }
-  }
-
-  glm::vec3 light_position = glm::vec3(0.0,  1.0,  2.0);
-  light_bbox.vertices.push_back(glm::vec4(-0.1, -0.1, -0.1, 0.0));
-  light_bbox.vertices.push_back(glm::vec4( 0.1, -0.1, -0.1, 0.0));
-  light_bbox.vertices.push_back(glm::vec4( 0.1,  0.1, -0.1, 0.0));
-  light_bbox.vertices.push_back(glm::vec4(-0.1,  0.1, -0.1, 0.0));
-  light_bbox.vertices.push_back(glm::vec4(-0.1, -0.1,  0.1, 0.0));
-  light_bbox.vertices.push_back(glm::vec4( 0.1, -0.1,  0.1, 0.0));
-  light_bbox.vertices.push_back(glm::vec4( 0.1,  0.1,  0.1, 0.0));
-  light_bbox.vertices.push_back(glm::vec4(-0.1,  0.1,  0.1, 0.0));
-  light_bbox.object2world = glm::translate(glm::mat4(1), light_position);
-
-  main_object.upload();
-  ground.upload();
-  light_bbox.upload();
-
-
-  /* Compile and link shaders */
-  GLint link_ok = GL_FALSE;
-  GLint validate_ok = GL_FALSE;
-
-  GLuint vs, fs;
-  if ((vs = create_shader(vshader_filename, GL_VERTEX_SHADER))   == 0) return 0;
-  if ((fs = create_shader(fshader_filename, GL_FRAGMENT_SHADER)) == 0) return 0;
-
-  program = glCreateProgram();
-  glAttachShader(program, vs);
-  glAttachShader(program, fs);
-  glLinkProgram(program);
-  glGetProgramiv(program, GL_LINK_STATUS, &link_ok);
-  if (!link_ok) {
-    fprintf(stderr, "glLinkProgram:");
-    print_log(program);
-    return 0;
-  }
-  glValidateProgram(program);
-  glGetProgramiv(program, GL_VALIDATE_STATUS, &validate_ok);
-  if (!validate_ok) {
-    fprintf(stderr, "glValidateProgram:");
-    print_log(program);
-  }
-
-  const char* attribute_name;
-  attribute_name = "v_coord";
-  attribute_v_coord = glGetAttribLocation(program, attribute_name);
-  if (attribute_v_coord == -1) {
-    fprintf(stderr, "Could not bind attribute %s\n", attribute_name);
-    return 0;
-  }
-  attribute_name = "v_normal";
-  attribute_v_normal = glGetAttribLocation(program, attribute_name);
-  if (attribute_v_normal == -1) {
-    fprintf(stderr, "Could not bind attribute %s\n", attribute_name);
-    return 0;
-  }
-  const char* uniform_name;
-  uniform_name = "m";
-  uniform_m = glGetUniformLocation(program, uniform_name);
-  if (uniform_m == -1) {
-    fprintf(stderr, "Could not bind uniform %s\n", uniform_name);
-    return 0;
-  }
-  uniform_name = "v";
-  uniform_v = glGetUniformLocation(program, uniform_name);
-  if (uniform_v == -1) {
-    fprintf(stderr, "Could not bind uniform %s\n", uniform_name);
-    return 0;
-  }
-  uniform_name = "p";
-  uniform_p = glGetUniformLocation(program, uniform_name);
-  if (uniform_p == -1) {
-    fprintf(stderr, "Could not bind uniform %s\n", uniform_name);
-    return 0;
-  }
-  uniform_name = "m_3x3_inv_transp";
-  uniform_m_3x3_inv_transp = glGetUniformLocation(program, uniform_name);
-  if (uniform_m_3x3_inv_transp == -1) {
-    fprintf(stderr, "Could not bind uniform %s\n", uniform_name);
-    return 0;
-  }
-  uniform_name = "v_inv";
-  uniform_v_inv = glGetUniformLocation(program, uniform_name);
-  if (uniform_v_inv == -1) {
-    fprintf(stderr, "Could not bind uniform %s\n", uniform_name);
-    return 0;
-  }
-
-  fps_start = glutGet(GLUT_ELAPSED_TIME);
-
-  return 1;
-}
 
 void init_view() {
   main_object.object2world = glm::mat4(1);
@@ -578,7 +238,6 @@ void draw() {
 
   main_object.draw();
   ground.draw();
-  light_bbox.draw_bbox();
 }
 
 void onDisplay()
@@ -616,16 +275,15 @@ void free_resources()
   glDeleteProgram(program);
 }
 
-
 int main(int argc, char* argv[]) {
   glutInit(&argc, argv);
   glutInitDisplayMode(GLUT_RGBA|GLUT_ALPHA|GLUT_DOUBLE|GLUT_DEPTH);
   glutInitWindowSize(screen_width, screen_height);
   glutCreateWindow("OBJ viewer");
 
-  char* obj_filename = (char*) "../src/suzanne.obj";
-  char* v_shader_filename = (char*) "../src/phong-shading.v.glsl";
-  char* f_shader_filename = (char*) "../src/phong-shading.f.glsl";
+  char* obj_filename = (char*) "../obj/suzanne.obj";
+  char* v_shader_filename = (char*) "../glsl/phong-shading.v.glsl";
+  char* f_shader_filename = (char*) "../glsl/phong-shading.f.glsl";
   if (argc != 4) {
     fprintf(stderr, "Usage: %s model.obj vertex_shader.v.glsl fragment_shader.f.glsl\n", argv[0]);
   } else {
