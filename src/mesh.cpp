@@ -4,6 +4,7 @@
 * Store object vertices, normals and/or elements in graphic card
 * buffers
 */
+
 void Mesh::upload() {
     if (this->vertices.size() > 0) {
       glGenBuffers(1, &this->vbo_vertices);

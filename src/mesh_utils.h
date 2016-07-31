@@ -44,6 +44,37 @@ void load_obj(const char* filename, Mesh* mesh) {
     else { /* ignoring this line */ }
   }
 
+  // assign initial position to q
+  mesh->q.resize(mesh->vertices.size() * 3);
+  for(int i = 0; i < mesh->vertices.size(); i++) {
+  	glm::vec4 v = mesh->vertices[i];
+  	Eigen::Array3f q;
+	q << v.x, v.y, v.z;
+	mesh->q.block<3,1>(3 * i,0) = q;
+  }
+
+  // assign initial velocity to v
+  mesh->v.resize(mesh->vertices.size() * 3);
+  mesh->v.setZero();
+
+  // assign unit mass
+  float unit_mass = mesh -> total_mass / mesh->vertices.size();
+  float unit_mass_inv = 1.0 / unit_mass;
+
+	std::vector<Eigen::Triplet<float,int> > m_triplets;
+	std::vector<Eigen::Triplet<float,int> > m_inv_triplets;
+  	for (int i = 0; i < mesh->vertices.size() * 3; i++)
+	{
+		m_triplets.push_back(Eigen::Triplet<float,int>(i, i, unit_mass));
+		m_inv_triplets.push_back(Eigen::Triplet<float,int>(i, i, unit_mass_inv));
+	}
+	mesh->M.resize(mesh->vertices.size() * 3, mesh->vertices.size() * 3);
+	mesh->M_inv.resize(mesh->vertices.size() * 3, mesh->vertices.size() * 3);
+	mesh->M.setFromTriplets(m_triplets.begin(), m_triplets.end());
+	mesh->M_inv.setFromTriplets(m_inv_triplets.begin(), m_inv_triplets.end());
+	m_triplets.clear();
+	m_inv_triplets.clear();
+
   // build edge list
   mesh->buildEdges();
 
