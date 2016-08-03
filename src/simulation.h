@@ -69,7 +69,7 @@ void update(int timestep) {
 		delta_p = (delta_p.norm() - edge.restLength) / 2 * delta_p.normalized();
 
 		p.block_vec3(0) = q.block_vec3(edge.vertexIndex[0]) - delta_p;
-		p.block_vec3(1) = q.block_vec3(edge.vertexIndex[0]) + delta_p;
+		p.block_vec3(1) = q.block_vec3(edge.vertexIndex[1]) + delta_p;
 
 		edge.createS(main_object.vertices.size());
 		SpMat S = edge.S;
