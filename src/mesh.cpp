@@ -1,4 +1,6 @@
 #include "mesh.h"
+#include <iostream>
+#include <fstream>
 
 /**
 * Store object vertices, normals and/or elements in graphic card
@@ -116,6 +118,7 @@ long Mesh::buildEdges(){
                 edge.vertexIndex[1] = (unsigned short) i2;
                 edge.triangleIndex[0] = (unsigned short) a;
                 edge.triangleIndex[1] = (unsigned short) a;
+                edge.restLength = glm::length(glm::vec3(vertices[i1]) - glm::vec3(vertices[i2]));
 
                 edges.push_back(edge);
                 long edgeIndex = firstEdge[i1];
@@ -180,5 +183,46 @@ long Mesh::buildEdges(){
     }
     delete[] firstEdge;
     return (edgeCount);
+}
+
+void Mesh::buildNormals() {
+  normals.resize(vertices.size(), glm::vec3(0.0, 0.0, 0.0));
+  std::vector<int> nb_seen;
+
+  nb_seen.resize(vertices.size(), 0);
+  for (unsigned int i = 0; i < elements.size(); i+=3) {
+    GLushort ia = elements[i];
+    GLushort ib = elements[i+1];
+    GLushort ic = elements[i+2];
+    glm::vec3 normal = glm::normalize(glm::cross(
+      glm::vec3(vertices[ib]) - glm::vec3(vertices[ia]),
+      glm::vec3(vertices[ic]) - glm::vec3(vertices[ia])));
+
+    int v[3];  v[0] = ia;  v[1] = ib;  v[2] = ic;
+    for (int j = 0; j < 3; j++) {
+      GLushort cur_v = v[j];
+      nb_seen[cur_v]++;
+      if (nb_seen[cur_v] == 1) {
+        normals[cur_v] = normal;
+      } else {
+    // average
+    normals[cur_v].x = normals[cur_v].x * (1.0 - 1.0/nb_seen[cur_v]) + normal.x * 1.0/nb_seen[cur_v];
+    normals[cur_v].y = normals[cur_v].y * (1.0 - 1.0/nb_seen[cur_v]) + normal.y * 1.0/nb_seen[cur_v];
+    normals[cur_v].z = normals[cur_v].z * (1.0 - 1.0/nb_seen[cur_v]) + normal.z * 1.0/nb_seen[cur_v];
+    normals[cur_v] = glm::normalize(normals[cur_v]);
+      }
+    }
+  }
+}
+
+void Mesh::writeObj() {
+  std::ofstream objfile;
+  objfile.open ("../obj/deformed.obj");
+  for(int i = 0; i < vertices.size(); i++) {
+    glm::vec4 v = vertices[i];
+    objfile << "v " << v.x <<" "<< v.y <<" "<< v.z << "\n"; 
+  }
+  objfile.close();
+  exit(0);
 }
 

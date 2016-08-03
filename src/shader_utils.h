@@ -1,12 +1,6 @@
 #ifndef _CREATE_SHADER_H
 #define _CREATE_SHADER_H
 
-#ifdef __APPLE__
-#include <OpenGL/gl.h>
-#else
-#include <GL/gl.h>
-#endif
-
 char* file_read(const char* filename);
 void print_log(GLuint object);
 GLuint create_shader(const char* filename, GLenum type);

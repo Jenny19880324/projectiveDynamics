@@ -22,16 +22,32 @@ extern GLint attribute_v_normal;
 extern GLint uniform_m, uniform_v, uniform_p;
 extern GLint uniform_m_3x3_inv_transp, uniform_v_inv;
 
-using namespace std;
-
 typedef Eigen::Matrix<float, Eigen::Dynamic,1> VectorX;
-typedef Eigen::SparseMatrix<float> MatrixX;
+typedef Eigen::SparseMatrix<float> SpMat;
+typedef Eigen::Triplet<float> T;
+
+#define block_vec3(a) block<3,1>(3*(a),0)
+
 
 struct Edge
 {
     unsigned short  vertexIndex[2];
     unsigned short  triangleIndex[2];
+    float restLength;
+    SpMat S;
+    void createS(unsigned int num_vertices) {
+      S.resize(6, 3 * num_vertices);
+      std::vector<T> coefficients;
+      coefficients.push_back(T(0, vertexIndex[0] * 3 + 0, 1));
+      coefficients.push_back(T(1, vertexIndex[0] * 3 + 1, 1));
+      coefficients.push_back(T(2, vertexIndex[0] * 3 + 2, 1));
+      coefficients.push_back(T(3, vertexIndex[1] * 3 + 0, 1));
+      coefficients.push_back(T(4, vertexIndex[1] * 3 + 1, 1));
+      coefficients.push_back(T(5, vertexIndex[1] * 3 + 2, 1));
+      S.setFromTriplets(coefficients.begin(), coefficients.end());
+    }
 };
+
 
 struct Triangle
 {
@@ -48,16 +64,16 @@ class Mesh
 public:
 	VectorX q;
 	VectorX v;
-	MatrixX M;
-	MatrixX M_inv;
+	SpMat M;
+	SpMat M_inv;
 
 	float total_mass;
 	
-  vector<glm::vec4> vertices;
-  vector<Edge> edges;
-  vector<Triangle> triangles;
-  vector<glm::vec3> normals;
-  vector<GLushort> elements;
+  std::vector<glm::vec4> vertices;
+  std::vector<Edge> edges;
+  std::vector<Triangle> triangles;
+  std::vector<glm::vec3> normals;
+  std::vector<GLushort> elements;
   glm::mat4 object2world;
 
   Mesh() : vbo_vertices(0), vbo_normals(0), ibo_elements(0), object2world(glm::mat4(1)), total_mass(1.0) {}
@@ -73,6 +89,8 @@ public:
   void upload();
   void draw();
   long buildEdges();
+  void buildNormals();
+  void writeObj();
 
 private:
   GLuint vbo_vertices, vbo_normals, ibo_elements;
