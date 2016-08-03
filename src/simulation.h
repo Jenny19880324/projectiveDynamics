@@ -42,9 +42,6 @@ void update(int timestep) {
 	Ai.setFromTriplets(coefficients.begin(), coefficients.end());
 	SpMat Bi = Ai;
 	float wi = 1.0;
-
-	std::ofstream objfile;
-  	objfile.open ("../obj/deformed.obj");
   
 
 	for(int i = 0; i < main_object.vertices.size(); i++) {
@@ -87,15 +84,6 @@ void update(int timestep) {
 	main_object.q = q_n;
 	main_object.v = v_n;
 
-///////////////////////////////////////////////////////
-//objfile << q_n << "\n"; 
-//objfile.close();
-//exit(1);
-//////////////////////////////////////////////////////
-
-
-
-
 	// update mesh in openGL
 	int num_vertices = main_object.vertices.size();
 	main_object.vertices.clear();
@@ -108,6 +96,10 @@ void update(int timestep) {
 	main_object.upload();
 printf("one frame\n");
 	//main_object.writeObj();
+}
+
+void intersect(const glm::vec4 &p){
+	
 }
 
 #endif

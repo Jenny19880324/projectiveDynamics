@@ -7,8 +7,6 @@
 #include "shader_utils.h"
 #include "mesh.h"
 
-#define GROUND_SIZE 20
-
 extern Mesh ground;
 extern Mesh main_object;
 extern Mesh light_bbox;
@@ -86,18 +84,20 @@ int init_resources(char* model_filename, char* vshader_filename, char* fshader_f
   load_obj(model_filename, &main_object);
   // mesh position initialized in init_view()
 
-  for (int i = -GROUND_SIZE/2; i < GROUND_SIZE/2; i++) {
-    for (int j = -GROUND_SIZE/2; j < GROUND_SIZE/2; j++) {
-      ground.vertices.push_back(glm::vec4(i,   0.0,  j+1, 1.0));
-      ground.vertices.push_back(glm::vec4(i+1, 0.0,  j+1, 1.0));
-      ground.vertices.push_back(glm::vec4(i,   0.0,  j,   1.0));
-      ground.vertices.push_back(glm::vec4(i,   0.0,  j,   1.0));
-      ground.vertices.push_back(glm::vec4(i+1, 0.0,  j+1, 1.0));
-      ground.vertices.push_back(glm::vec4(i+1, 0.0,  j,   1.0));
-      for (unsigned int k = 0; k < 6; k++)
-    ground.normals.push_back(glm::vec3(0.0, 1.0, 0.0));
-    }
-  }
+  ground.vertices.push_back(glm::vec4(-2.0,  -1.0,  0.0,  1.0));
+  ground.vertices.push_back(glm::vec4(2.0, -1.0,  0.0,  1.0));
+  ground.vertices.push_back(glm::vec4(-2.0,  -1.0,  2.0, 1.0));
+  ground.vertices.push_back(glm::vec4(2.0, -1.0,  2.0, 1.0));
+
+  ground.elements.push_back(0); 
+  ground.elements.push_back(1); 
+  ground.elements.push_back(2);
+  ground.elements.push_back(2); 
+  ground.elements.push_back(1); 
+  ground.elements.push_back(3);
+
+  for (unsigned int k = 0; k < 4; k++)
+  ground.normals.push_back(glm::vec3(0.0, 1.0, 0.0));
 
   glm::vec3 light_position = glm::vec3(0.0,  1.0,  2.0);
   light_bbox.vertices.push_back(glm::vec4(-0.1, -0.1, -0.1, 0.0));
