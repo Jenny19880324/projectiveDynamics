@@ -81,7 +81,10 @@ void load_obj(const char* filename, Mesh* mesh) {
 
 int init_resources(char* model_filename, char* vshader_filename, char* fshader_filename)
 {
-  load_obj(model_filename, &main_object);
+  //load_obj(model_filename, &main_object);
+  main_object.buildVertices();
+  main_object.buildTriangles();
+  main_object.buildEdges();
   // mesh position initialized in init_view()
 
   ground.vertices.push_back(glm::vec4(-2.0,  -1.0,  0.0,  1.0));

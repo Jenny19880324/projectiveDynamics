@@ -38,18 +38,11 @@ VectorX collide(const VectorX q){
 }
 
 void setupConstraints(){
-	fixedPointConstraints.push_back(FixedPoint(100));
-	fixedPointConstraints.push_back(FixedPoint(101));
-	fixedPointConstraints.push_back(FixedPoint(102));
-	fixedPointConstraints.push_back(FixedPoint(103));
-	fixedPointConstraints.push_back(FixedPoint(104));
-	fixedPointConstraints.push_back(FixedPoint(105));
-	fixedPointConstraints.push_back(FixedPoint(106));
-	fixedPointConstraints.push_back(FixedPoint(107));
-	fixedPointConstraints.push_back(FixedPoint(108));
+	fixedPointConstraints.push_back(FixedPoint(0));
 }
 
 void update(int timestep) {
+
 	glutTimerFunc(timestep, update, timestep);
 	float h = (float)timestep / 100;
 	VectorX q = main_object.q;
@@ -82,12 +75,10 @@ void update(int timestep) {
 	Ai.setFromTriplets(coefficients.begin(), coefficients.end());
 	SpMat Bi = Ai;
 	float wi = 1.0;
-  
 
 	for(int i = 0; i < main_object.vertices.size(); i++) {
 		fext[i * 3 + 1] = -gravity_g;
 	}
-
 	fext = M * fext;
 
 	VectorX s = q + v * h + h * h * M_inv * fext ;
@@ -95,11 +86,9 @@ void update(int timestep) {
 	VectorX p;
 	VectorX RHS = (1.0 / (h * h)) * M * s;
 	SpMat LHS = M / (h * h);
-
 	// project on spring constraints
 	for(int i = 0; i < main_object.edges.size(); i++) {
 		Edge edge = main_object.edges[i];
-
 		//from Position Based Dynamics 3.3 Constraint Projection
 		p.resize(6);
 		VectorX delta_p = q.block_vec3(edge.vertexIndex[0]) - q.block_vec3(edge.vertexIndex[1]);
@@ -115,7 +104,6 @@ void update(int timestep) {
 		SpMat Ai_transpose = Ai.transpose();
 		LHS += wi * S_transpose * Ai_transpose * Ai * S;
 	}
-
 	// project on fixed constraints
 	for(int i = 0; i < fixedPointConstraints.size(); i++) {
 		FixedPoint fp = fixedPointConstraints[i];
@@ -124,7 +112,6 @@ void update(int timestep) {
 	}
 
 /////////////////////////////////////////////////////////////////////
-
 	lltOfM.compute(LHS);
 	q_n = lltOfM.solve(RHS);
 
@@ -138,7 +125,6 @@ void update(int timestep) {
 	main_object.q -= penetration;
 
 	main_object.vertices.clear();
-	
 	for(int i = 0; i < num_vertices; i++) {
 		VectorX v3 = main_object.q.block_vec3(i);
 		glm::vec4 v4(v3(0,0),v3(1,0),v3(2,0),1.0);

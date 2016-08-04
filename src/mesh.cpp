@@ -90,6 +90,7 @@ long Mesh::buildEdges(){
 
 	long vertexCount = vertices.size();
 	long triangleCount = triangles.size();
+  printf("vertexCount=%ld triangleCount = %ld\n", vertexCount, triangleCount);
     long maxEdgeCount = triangleCount * 3;
     unsigned short *firstEdge = new unsigned short[vertexCount + maxEdgeCount];
     unsigned short *nextEdge = firstEdge + vertexCount;
@@ -119,7 +120,6 @@ long Mesh::buildEdges(){
                 edge.triangleIndex[0] = (unsigned short) a;
                 edge.triangleIndex[1] = (unsigned short) a;
                 edge.restLength = glm::length(glm::vec3(vertices[i1]) - glm::vec3(vertices[i2]));
-
                 edges.push_back(edge);
                 long edgeIndex = firstEdge[i1];
                 if (edgeIndex == 0xFFFF)
@@ -261,5 +261,59 @@ void Mesh::writeObj() {
   }
   objfile.close();
   exit(0);
+}
+
+
+//for cloth simulation
+void Mesh::buildVertices() {
+  std::vector<glm::vec3> corners;
+  corners.push_back(glm::vec3(-1.0,1.0,-1.0));
+  corners.push_back(glm::vec3( 1.0,1.0, 1.0));
+  glm::vec3 delta = (corners[1] - corners[0]) / (float) CLOTHSIZE;
+  for(int i = 0; i < CLOTHSIZE; i ++) {
+    for(int j = 0; j < CLOTHSIZE; j++){
+      vertices.push_back(glm::vec4(corners[0].x + (float) j * delta.x,
+                                   corners[0].y + (float) j * delta.y,
+                                   corners[0].z + (float) i * delta.z, 1.0));
+    }
+  }
+
+  // assign initial position to q
+  q.resize(vertices.size() * 3);
+  for(int i = 0; i < vertices.size(); i++) {
+    glm::vec4 v = vertices[i];
+    Eigen::Array3f q0;
+    q0 << v.x, v.y, v.z;
+    q.block<3,1>(3 * i,0) = q0;
+  }
+
+  // assign initial velocity to v
+  v.resize(vertices.size() * 3);
+  v.setZero();
+
+  // assign unit mass
+  float unit_mass = total_mass / vertices.size();
+  float unit_mass_inv = 1.0 / unit_mass;
+
+  std::vector<T> m_triplets;
+  std::vector<T> m_inv_triplets;
+  for (int i = 0; i < vertices.size() * 3; i++)
+  {
+    m_triplets.push_back(T(i, i, unit_mass));
+    m_inv_triplets.push_back(T(i, i, unit_mass_inv));
+  }
+  M.resize(vertices.size() * 3, vertices.size() * 3);
+  M_inv.resize(vertices.size() * 3, vertices.size() * 3);
+  M.setFromTriplets(m_triplets.begin(), m_triplets.end());
+  M_inv.setFromTriplets(m_inv_triplets.begin(), m_inv_triplets.end());
+}
+
+void Mesh::buildTriangles() {
+  for(int i = 0; i < CLOTHSIZE - 1; i ++) {
+    for(int j = 0; j < CLOTHSIZE - 1; j++){
+      triangles.push_back(Triangle(i * CLOTHSIZE + j, (i + 1) * CLOTHSIZE + j, (i + 1) * CLOTHSIZE + j ));
+      triangles.push_back(Triangle(i * CLOTHSIZE + j, (i + 1) * CLOTHSIZE + j + 1, i * CLOTHSIZE + j + 1));
+    }
+  }
 }
 

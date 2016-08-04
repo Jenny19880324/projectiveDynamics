@@ -28,6 +28,7 @@ typedef Eigen::SparseMatrix<float> SpMat;
 typedef Eigen::Triplet<float> T;
 
 #define block_vec3(a) block<3,1>(3*(a),0)
+#define CLOTHSIZE 20
 
 
 struct Edge
@@ -90,6 +91,8 @@ public:
 
   void upload();
   void draw();
+  void buildVertices();
+  void buildTriangles();
   long buildEdges();
   void buildNormals();
   void writeObj();
