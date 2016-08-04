@@ -85,6 +85,7 @@ int init_resources(char* model_filename, char* vshader_filename, char* fshader_f
   main_object.buildVertices();
   main_object.buildTriangles();
   main_object.buildEdges();
+  main_object.buildNormals();
   // mesh position initialized in init_view()
 
   ground.vertices.push_back(glm::vec4(-2.0,  -1.0,  0.0,  1.0));

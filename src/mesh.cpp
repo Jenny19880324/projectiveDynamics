@@ -267,8 +267,8 @@ void Mesh::writeObj() {
 //for cloth simulation
 void Mesh::buildVertices() {
   std::vector<glm::vec3> corners;
-  corners.push_back(glm::vec3(-1.0,1.0,-1.0));
-  corners.push_back(glm::vec3( 1.0,1.0, 1.0));
+  corners.push_back(glm::vec3(-2.0,1.0,-2.0));
+  corners.push_back(glm::vec3( 2.0,1.0, 2.0));
   glm::vec3 delta = (corners[1] - corners[0]) / (float) CLOTHSIZE;
   for(int i = 0; i < CLOTHSIZE; i ++) {
     for(int j = 0; j < CLOTHSIZE; j++){
@@ -311,8 +311,16 @@ void Mesh::buildVertices() {
 void Mesh::buildTriangles() {
   for(int i = 0; i < CLOTHSIZE - 1; i ++) {
     for(int j = 0; j < CLOTHSIZE - 1; j++){
-      triangles.push_back(Triangle(i * CLOTHSIZE + j, (i + 1) * CLOTHSIZE + j, (i + 1) * CLOTHSIZE + j ));
+      triangles.push_back(Triangle(i * CLOTHSIZE + j, (i + 1) * CLOTHSIZE + j, (i + 1) * CLOTHSIZE + j + 1 ));
       triangles.push_back(Triangle(i * CLOTHSIZE + j, (i + 1) * CLOTHSIZE + j + 1, i * CLOTHSIZE + j + 1));
+
+      elements.push_back(i * CLOTHSIZE + j);
+      elements.push_back((i + 1) * CLOTHSIZE + j);
+      elements.push_back((i + 1) * CLOTHSIZE + j + 1 );
+
+      elements.push_back(i * CLOTHSIZE + j);
+      elements.push_back((i + 1) * CLOTHSIZE + j + 1);
+      elements.push_back( i * CLOTHSIZE + j + 1);
     }
   }
 }

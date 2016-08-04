@@ -53,7 +53,7 @@ void update(int timestep) {
 
 	VectorX fext(main_object.vertices.size() * 3);
 	fext.setZero();
-	const float gravity_g = 98;
+	const float gravity_g = 980;
 
 	////////////////////////////////////////////////////////////////////////
 	// choice of Ai and Bi 
@@ -74,7 +74,7 @@ void update(int timestep) {
 	coefficients.push_back(T(5, 2, -0.5));
 	Ai.setFromTriplets(coefficients.begin(), coefficients.end());
 	SpMat Bi = Ai;
-	float wi = 1.0;
+	float wi = 1000.0;
 
 	for(int i = 0; i < main_object.vertices.size(); i++) {
 		fext[i * 3 + 1] = -gravity_g;
@@ -107,6 +107,8 @@ void update(int timestep) {
 	// project on fixed constraints
 	for(int i = 0; i < fixedPointConstraints.size(); i++) {
 		FixedPoint fp = fixedPointConstraints[i];
+printf("fp.fixedPosition=(%f,%f,%f)\n", fp.fixedPosition(0), fp.fixedPosition(1), fp.fixedPosition(2));
+printf("vertices[0]=(%f,%f,%f)\n", main_object.vertices[0].x,  main_object.vertices[0].y, main_object.vertices[0].z);
 		RHS += fp.RHS;
 		LHS += fp.LHS;
 	}
@@ -121,8 +123,8 @@ void update(int timestep) {
 
 	// update mesh in openGL
 	int num_vertices = main_object.vertices.size();
-	VectorX penetration = collide(main_object.q);
-	main_object.q -= penetration;
+	//VectorX penetration = collide(main_object.q);
+	//main_object.q -= penetration;
 
 	main_object.vertices.clear();
 	for(int i = 0; i < num_vertices; i++) {

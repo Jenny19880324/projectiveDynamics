@@ -19,7 +19,7 @@ public:
 	void createLHS();
 
 	FixedPoint() {}
-	FixedPoint(unsigned int index):vertexIndex(index),wi(1.0){
+	FixedPoint(unsigned int index):vertexIndex(index),wi(10000.0){
 		fixedPosition << main_object.vertices[index].x, main_object.vertices[index].y, main_object.vertices[index].z;
 		createS();
 		createAi();

@@ -63,7 +63,7 @@ Mesh ground, main_object, light_bbox;
 void init_view() {
   main_object.object2world = glm::mat4(1);
   transforms[MODE_CAMERA] = glm::lookAt(
-    glm::vec3(0.0,  0.0, 4.0),   // eye
+    glm::vec3(0.0,  0.0, 10.0),   // eye
     glm::vec3(0.0,  0.0, 0.0),   // direction
     glm::vec3(0.0,  1.0, 0.0));  // up
 }

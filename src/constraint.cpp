@@ -4,9 +4,9 @@ void FixedPoint::createS(){
 	S.resize(3, 3 * main_object.vertices.size());
 	std::vector<T> coefficients;
  	coefficients.clear();
-	coefficients.push_back(T(0, 0 * 3 + 0, 1));
-	coefficients.push_back(T(1, 0 * 3 + 1, 1));
-	coefficients.push_back(T(2, 0 * 3 + 2, 1));
+	coefficients.push_back(T(0, vertexIndex * 3 + 0, 1));
+	coefficients.push_back(T(1, vertexIndex * 3 + 1, 1));
+	coefficients.push_back(T(2, vertexIndex * 3 + 2, 1));
 	S.setFromTriplets(coefficients.begin(), coefficients.end());
 	S_transpose = S.transpose();
 }
