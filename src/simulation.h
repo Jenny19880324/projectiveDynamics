@@ -2,12 +2,52 @@
 #define _SIMULATION_H_
 
 #include "mesh.h"
+#include "constraint.h"
 
 typedef Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> Matrix;
 
 extern Mesh main_object;
+const float ground_height = -1.0;
+const float EPSILON = 0.01;
+
+std::vector<FixedPoint> fixedPointConstraints;
 
 Eigen::LLT<Matrix> lltOfM;
+
+VectorX collide(const VectorX q){
+	VectorX penetration(main_object.vertices.size() * 3);
+
+	penetration.setZero();
+	Vector3 n = Vector3(0.0,1.0,0.0);
+	for(int i = 0; i < main_object.vertices.size(); i++){
+		Vector3 qi = q.block_vec3(i);
+		float dist = qi(1) - ground_height - EPSILON;
+		if(dist < 0){
+			penetration.block_vec3(i) += dist * n;
+			Vector3 v = main_object.v.block_vec3(i);
+			Vector3 vn = v.dot(n)/n.norm() * n;
+			Vector3 vt = v - vn;
+			//damp velocity components
+			vn = -0.4 * vn;
+			vt = 0.98 * vt;
+
+			main_object.v.block_vec3(i) = vn + vt;
+		}
+	}
+	return penetration;
+}
+
+void setupConstraints(){
+	fixedPointConstraints.push_back(FixedPoint(100));
+	fixedPointConstraints.push_back(FixedPoint(101));
+	fixedPointConstraints.push_back(FixedPoint(102));
+	fixedPointConstraints.push_back(FixedPoint(103));
+	fixedPointConstraints.push_back(FixedPoint(104));
+	fixedPointConstraints.push_back(FixedPoint(105));
+	fixedPointConstraints.push_back(FixedPoint(106));
+	fixedPointConstraints.push_back(FixedPoint(107));
+	fixedPointConstraints.push_back(FixedPoint(108));
+}
 
 void update(int timestep) {
 	glutTimerFunc(timestep, update, timestep);
@@ -20,7 +60,7 @@ void update(int timestep) {
 
 	VectorX fext(main_object.vertices.size() * 3);
 	fext.setZero();
-	const float gravity_g = 980;
+	const float gravity_g = 98;
 
 	////////////////////////////////////////////////////////////////////////
 	// choice of Ai and Bi 
@@ -56,7 +96,7 @@ void update(int timestep) {
 	VectorX RHS = (1.0 / (h * h)) * M * s;
 	SpMat LHS = M / (h * h);
 
-	// project on constraints
+	// project on spring constraints
 	for(int i = 0; i < main_object.edges.size(); i++) {
 		Edge edge = main_object.edges[i];
 
@@ -64,18 +104,26 @@ void update(int timestep) {
 		p.resize(6);
 		VectorX delta_p = q.block_vec3(edge.vertexIndex[0]) - q.block_vec3(edge.vertexIndex[1]);
 		delta_p = (delta_p.norm() - edge.restLength) / 2 * delta_p.normalized();
-
 		p.block_vec3(0) = q.block_vec3(edge.vertexIndex[0]) - delta_p;
 		p.block_vec3(1) = q.block_vec3(edge.vertexIndex[1]) + delta_p;
-
 		edge.createS(main_object.vertices.size());
 		SpMat S = edge.S;
+
 		SpMat S_transpose = S.transpose();
 		SpMat RHSMatrix = wi * S_transpose * Ai * Bi;
 		RHS += RHSMatrix * p;
 		SpMat Ai_transpose = Ai.transpose();
 		LHS += wi * S_transpose * Ai_transpose * Ai * S;
 	}
+
+	// project on fixed constraints
+	for(int i = 0; i < fixedPointConstraints.size(); i++) {
+		FixedPoint fp = fixedPointConstraints[i];
+		RHS += fp.RHS;
+		LHS += fp.LHS;
+	}
+
+/////////////////////////////////////////////////////////////////////
 
 	lltOfM.compute(LHS);
 	q_n = lltOfM.solve(RHS);
@@ -86,7 +134,11 @@ void update(int timestep) {
 
 	// update mesh in openGL
 	int num_vertices = main_object.vertices.size();
+	VectorX penetration = collide(main_object.q);
+	main_object.q -= penetration;
+
 	main_object.vertices.clear();
+	
 	for(int i = 0; i < num_vertices; i++) {
 		VectorX v3 = main_object.q.block_vec3(i);
 		glm::vec4 v4(v3(0,0),v3(1,0),v3(2,0),1.0);
@@ -96,10 +148,6 @@ void update(int timestep) {
 	main_object.upload();
 printf("one frame\n");
 	//main_object.writeObj();
-}
-
-void intersect(const glm::vec4 &p){
-	
 }
 
 #endif

@@ -48,7 +48,9 @@ add_executable(projectiveDynamics
     src/shader_utils.h
     src/shader_utils.cpp
     src/mesh.h
-    src/mesh.cpp)
+    src/mesh.cpp
+    src/constraint.h
+    src/constraint.cpp)
 
 # LINKING
 

@@ -239,7 +239,7 @@ void draw() {
   glUseProgram(program);
 
   main_object.draw();
-  ground.draw();
+  //ground.draw();
 }
 
 void onDisplay()
@@ -297,7 +297,8 @@ int main(int argc, char* argv[]) {
   if (init_resources(obj_filename, v_shader_filename, f_shader_filename)) {
     init_view();
     glutDisplayFunc(onDisplay);
-    //glutTimerFunc(timestep, update, timestep);
+    setupConstraints();
+    glutTimerFunc(timestep, update, timestep);
     glutSpecialFunc(onSpecial);
     glutSpecialUpFunc(onSpecialUp);
     glutMouseFunc(onMouse);

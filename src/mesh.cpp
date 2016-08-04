@@ -167,14 +167,51 @@ long Mesh::buildEdges(){
             long i2 = triangle.index[b];
             if (i1 > i2)
             {
+                bool is_new_edge = true;
                 for (long edgeIndex = firstEdge[i2]; edgeIndex != 0xFFFF; edgeIndex = nextEdge[edgeIndex])
                 {
                     Edge edge = edges[edgeIndex];
                     if ((edge.vertexIndex[1] == i1) && (edge.triangleIndex[0] == edge.triangleIndex[1]))
                     {
                         edge.triangleIndex[1] = (unsigned short) a;
+                        is_new_edge = false;
                         break;
                     }
+                }
+
+                // for case where a edge belongs to only one triangle. i.e. mesh is not watertight.
+                if(is_new_edge)
+                {
+                  Edge new_edge;
+                  new_edge.vertexIndex[0] = (unsigned short) i1;
+                  new_edge.vertexIndex[1] = (unsigned short) i2;
+                  new_edge.triangleIndex[0] = (unsigned short) a;
+                  new_edge.triangleIndex[1] = (unsigned short) a;
+                  new_edge.restLength = glm::length(glm::vec3(vertices[i1]) - glm::vec3(vertices[i2]));
+
+                  edges.push_back(new_edge);
+
+                  long edgeIndex = firstEdge[i1];
+                  if(edgeIndex == 0xFFFF)
+                  {
+                    firstEdge[i1] = edgeCount;
+                  }
+                  else
+                  {
+                    while(true)
+                    {
+                      long index = nextEdge[edgeIndex];
+                      if(index == 0xFFFF)
+                      {
+                        nextEdge[edgeIndex] = edgeCount;
+                        break;
+                      }
+                      edgeIndex = index;
+                    }
+                  }
+
+                  nextEdge[edgeCount] = 0xFFFF;
+                  edgeCount++;
                 }
             }
 

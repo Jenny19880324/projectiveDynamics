@@ -23,6 +23,7 @@ extern GLint uniform_m, uniform_v, uniform_p;
 extern GLint uniform_m_3x3_inv_transp, uniform_v_inv;
 
 typedef Eigen::Matrix<float, Eigen::Dynamic,1> VectorX;
+typedef Eigen::Matrix<float, 3, 1, 0, 3 ,1> Vector3;
 typedef Eigen::SparseMatrix<float> SpMat;
 typedef Eigen::Triplet<float> T;
 
