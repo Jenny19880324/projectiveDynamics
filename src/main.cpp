@@ -39,7 +39,7 @@ int screen_width=800, screen_height=600;
 bool compute_arcball;
 int last_mx = 0, last_my = 0, cur_mx = 0, cur_my = 0;
 int arcball_on = false;
-float timestep = 1;
+unsigned int timestep = 10;
 
 GLint attribute_v_coord = -1;
 GLint attribute_v_normal = -1;

@@ -1,6 +1,8 @@
 #ifndef _SIMULATION_H_
 #define _SIMULATION_H_
 
+#include <omp.h>
+#include <ctime>
 #include "mesh.h"
 #include "constraint.h"
 
@@ -11,6 +13,8 @@ const float ground_height = -1.0;
 const float EPSILON = 0.01;
 
 std::vector<Constraint *> constraints;
+VectorX fext;
+
 
 Eigen::LLT<Matrix> lltOfM;
 
@@ -45,26 +49,35 @@ void setupConstraints(){
 		Edge edge = main_object.edges[i];
 		constraints.push_back(new Spring(edge.vertexIndex[0],edge.vertexIndex[1]));
 	}
-}
 
-void update(int timestep) {
-
-	glutTimerFunc(timestep, update, timestep);
-	float h = (float)timestep / 100;
-	VectorX q = main_object.q;
-	VectorX q_n;
-	VectorX v = main_object.v;
-	SpMat M = main_object.M;
-	SpMat M_inv = main_object.M_inv;
-
-	VectorX fext(main_object.vertices.size() * 3);
+	// external forces
+	fext.resize(main_object.vertices.size() * 3);
 	fext.setZero();
 	const float gravity_g = 980;
 
 	for(int i = 0; i < main_object.vertices.size(); i++) {
 		fext[i * 3 + 1] = -gravity_g;
 	}
-	fext = M * fext;
+	fext = main_object.M * fext;
+}
+
+void update(int timestep) {
+////////////////////////////////////////////////////////////////////////
+	std::clock_t start;
+    double duration;
+    start = std::clock();
+////////////////////////////////////////////////////////////////////////
+
+
+	glutTimerFunc(timestep, update, timestep);
+	float h = (float)timestep / 1000;
+	VectorX q = main_object.q;
+	VectorX q_n;
+	VectorX v = main_object.v;
+	SpMat M = main_object.M;
+	SpMat M_inv = main_object.M_inv;
+
+
 
 	VectorX s = q + v * h + h * h * M_inv * fext ;
 	q = s;
@@ -73,24 +86,39 @@ void update(int timestep) {
 	SpMat LHS = M / (h * h);
 
 	// project on constraints
+	//#pragma omp parallel for
 	for(int i = 0; i < constraints.size(); i++) {
 		Constraint *ci = constraints[i];
+		VectorX RHSTemp;
+		SpMat LHSTemp;
 		if(ci->type == FIXEDPOINT){
 			FixedPoint *fixedPoint = (FixedPoint *)ci;
-			RHS += fixedPoint->RHS;
-			LHS += fixedPoint->LHS;
+			RHSTemp = fixedPoint->RHS;
+			LHSTemp = fixedPoint->LHS;
 		}
 		else if (ci->type == SPRING) {
 			Spring *spring = (Spring *)ci;
 			spring->createRHS(q); 
-			RHS += spring->RHS;
-			LHS += spring->LHS;
+			RHSTemp = spring->RHS;
+			LHSTemp = spring->LHS;
 		}
+		//#pragma omp critical
+		//{
+			RHS += RHSTemp;
+			LHS += LHSTemp;
+		//}
 	}
-
 /////////////////////////////////////////////////////////////////////
+duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
+std::cout<<"build matrix: "<< duration <<'\n';
+std::clock_t start1 = std::clock();
+
+
 	lltOfM.compute(LHS);
 	q_n = lltOfM.solve(RHS);
+
+duration = ( std::clock() - start1 ) / (double) CLOCKS_PER_SEC;
+std::cout<<"solve matrix: "<< duration <<'\n';
 
 	VectorX v_n = (q_n - q)/h;
 	main_object.q = q_n;
@@ -107,10 +135,12 @@ void update(int timestep) {
 		glm::vec4 v4(v3(0,0),v3(1,0),v3(2,0),1.0);
 		main_object.vertices.push_back(v4);
 	}
+
 	main_object.buildNormals();
 	main_object.upload();
-printf("one frame\n");
 	//main_object.writeObj();
+duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
+std::cout<<"total: "<< duration <<'\n';
 }
 
 #endif
