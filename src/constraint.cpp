@@ -69,6 +69,8 @@ void Spring::createAi() {
 	Ai_transpose = Ai.transpose();
 
 	Bi = Ai;
+	
+	RHSMatrix = wi * S_transpose * Ai * Bi;
 }
 
 void Spring::createRHS(const VectorX &q) {
@@ -79,7 +81,6 @@ void Spring::createRHS(const VectorX &q) {
 	p.block_vec3(0) = q.block_vec3(vertexIndex[0]) - delta_p;
 	p.block_vec3(1) = q.block_vec3(vertexIndex[1]) + delta_p;
 
-	SpMat RHSMatrix = wi * S_transpose * Ai * Bi;
 	RHS = RHSMatrix * p;
 }
 

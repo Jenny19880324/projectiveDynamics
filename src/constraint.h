@@ -80,6 +80,7 @@ public:
 	SpMat S;
 	SpMat S_transpose;
 	SpMat LHS;
+	SpMat RHSMatrix;
 	VectorX RHS;
 	float wi;
 	float restLength;

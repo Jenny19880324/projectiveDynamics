@@ -107,23 +107,26 @@ void update(int timestep) {
 	VectorX RHS = (1.0 / (h * h)) * M * s;
 
 	// project on constraints
-	//#pragma omp parallel for
-	for(int i = 0; i < constraints.size(); i++) {
-		Constraint *ci = constraints[i];
-		VectorX RHSTemp;
+	Constraint *ci;
+	VectorX RHSTemp;
+	FixedPoint *fixedPoint;
+	Spring *spring;
+	int i;
+
+	//#pragma omp parallel for private(i, ci, RHSTemp, fixedPoint, spring)
+	for(i = 0; i < constraints.size(); i++) {
+		ci = constraints[i];
 		if(ci->type == FIXEDPOINT){
-			FixedPoint *fixedPoint = (FixedPoint *)ci;
+			fixedPoint = (FixedPoint *)ci;
 			RHSTemp = fixedPoint->RHS;
 		}
 		else if (ci->type == SPRING) {
-			Spring *spring = (Spring *)ci;
+			spring = (Spring *)ci;
 			spring->createRHS(q); 
 			RHSTemp = spring->RHS;
 		}
 		//#pragma omp critical
-		//{
-			RHS += RHSTemp;
-		//}
+		RHS += RHSTemp;
 	}
 /////////////////////////////////////////////////////////////////////
 duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
