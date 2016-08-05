@@ -35,19 +35,7 @@ struct Edge
 {
     unsigned short  vertexIndex[2];
     unsigned short  triangleIndex[2];
-    float restLength;
     SpMat S;
-    void createS(unsigned int num_vertices) {
-      S.resize(6, 3 * num_vertices);
-      std::vector<T> coefficients;
-      coefficients.push_back(T(0, vertexIndex[0] * 3 + 0, 1));
-      coefficients.push_back(T(1, vertexIndex[0] * 3 + 1, 1));
-      coefficients.push_back(T(2, vertexIndex[0] * 3 + 2, 1));
-      coefficients.push_back(T(3, vertexIndex[1] * 3 + 0, 1));
-      coefficients.push_back(T(4, vertexIndex[1] * 3 + 1, 1));
-      coefficients.push_back(T(5, vertexIndex[1] * 3 + 2, 1));
-      S.setFromTriplets(coefficients.begin(), coefficients.end());
-    }
 };
 
 

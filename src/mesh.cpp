@@ -119,7 +119,6 @@ long Mesh::buildEdges(){
                 edge.vertexIndex[1] = (unsigned short) i2;
                 edge.triangleIndex[0] = (unsigned short) a;
                 edge.triangleIndex[1] = (unsigned short) a;
-                edge.restLength = glm::length(glm::vec3(vertices[i1]) - glm::vec3(vertices[i2]));
                 edges.push_back(edge);
                 long edgeIndex = firstEdge[i1];
                 if (edgeIndex == 0xFFFF)
@@ -187,7 +186,6 @@ long Mesh::buildEdges(){
                   new_edge.vertexIndex[1] = (unsigned short) i2;
                   new_edge.triangleIndex[0] = (unsigned short) a;
                   new_edge.triangleIndex[1] = (unsigned short) a;
-                  new_edge.restLength = glm::length(glm::vec3(vertices[i1]) - glm::vec3(vertices[i2]));
 
                   edges.push_back(new_edge);
 

@@ -10,7 +10,7 @@ extern Mesh main_object;
 const float ground_height = -1.0;
 const float EPSILON = 0.01;
 
-std::vector<FixedPoint> fixedPointConstraints;
+std::vector<Constraint *> constraints;
 
 Eigen::LLT<Matrix> lltOfM;
 
@@ -38,7 +38,13 @@ VectorX collide(const VectorX q){
 }
 
 void setupConstraints(){
-	fixedPointConstraints.push_back(FixedPoint(0));
+	//set up fixed point constraints
+	constraints.push_back(new FixedPoint(0));
+	//set up spring constraints
+	for(int i = 0; i < main_object.edges.size(); i++) {
+		Edge edge = main_object.edges[i];
+		constraints.push_back(new Spring(edge.vertexIndex[0],edge.vertexIndex[1]));
+	}
 }
 
 void update(int timestep) {
@@ -55,27 +61,6 @@ void update(int timestep) {
 	fext.setZero();
 	const float gravity_g = 980;
 
-	////////////////////////////////////////////////////////////////////////
-	// choice of Ai and Bi 
-	// from Shape-Up: Shaping Discrete Geometry with Projections eq.(5)
-	SpMat Ai(6,6);
-	std::vector<T> coefficients;
-	coefficients.push_back(T(0, 0, 0.5));
-	coefficients.push_back(T(1, 1, 0.5));
-	coefficients.push_back(T(2, 2, 0.5));
-	coefficients.push_back(T(3, 3, 0.5));
-	coefficients.push_back(T(4, 4, 0.5));
-	coefficients.push_back(T(5, 5, 0.5));
-	coefficients.push_back(T(0, 3, -0.5));
-	coefficients.push_back(T(1, 4, -0.5));
-	coefficients.push_back(T(2, 5, -0.5));
-	coefficients.push_back(T(3, 0, -0.5));
-	coefficients.push_back(T(4, 1, -0.5));
-	coefficients.push_back(T(5, 2, -0.5));
-	Ai.setFromTriplets(coefficients.begin(), coefficients.end());
-	SpMat Bi = Ai;
-	float wi = 1000.0;
-
 	for(int i = 0; i < main_object.vertices.size(); i++) {
 		fext[i * 3 + 1] = -gravity_g;
 	}
@@ -86,31 +71,21 @@ void update(int timestep) {
 	VectorX p;
 	VectorX RHS = (1.0 / (h * h)) * M * s;
 	SpMat LHS = M / (h * h);
-	// project on spring constraints
-	for(int i = 0; i < main_object.edges.size(); i++) {
-		Edge edge = main_object.edges[i];
-		//from Position Based Dynamics 3.3 Constraint Projection
-		p.resize(6);
-		VectorX delta_p = q.block_vec3(edge.vertexIndex[0]) - q.block_vec3(edge.vertexIndex[1]);
-		delta_p = (delta_p.norm() - edge.restLength) / 2 * delta_p.normalized();
-		p.block_vec3(0) = q.block_vec3(edge.vertexIndex[0]) - delta_p;
-		p.block_vec3(1) = q.block_vec3(edge.vertexIndex[1]) + delta_p;
-		edge.createS(main_object.vertices.size());
-		SpMat S = edge.S;
 
-		SpMat S_transpose = S.transpose();
-		SpMat RHSMatrix = wi * S_transpose * Ai * Bi;
-		RHS += RHSMatrix * p;
-		SpMat Ai_transpose = Ai.transpose();
-		LHS += wi * S_transpose * Ai_transpose * Ai * S;
-	}
-	// project on fixed constraints
-	for(int i = 0; i < fixedPointConstraints.size(); i++) {
-		FixedPoint fp = fixedPointConstraints[i];
-printf("fp.fixedPosition=(%f,%f,%f)\n", fp.fixedPosition(0), fp.fixedPosition(1), fp.fixedPosition(2));
-printf("vertices[0]=(%f,%f,%f)\n", main_object.vertices[0].x,  main_object.vertices[0].y, main_object.vertices[0].z);
-		RHS += fp.RHS;
-		LHS += fp.LHS;
+	// project on constraints
+	for(int i = 0; i < constraints.size(); i++) {
+		Constraint *ci = constraints[i];
+		if(ci->type == FIXEDPOINT){
+			FixedPoint *fixedPoint = (FixedPoint *)ci;
+			RHS += fixedPoint->RHS;
+			LHS += fixedPoint->LHS;
+		}
+		else if (ci->type == SPRING) {
+			Spring *spring = (Spring *)ci;
+			spring->createRHS(q); 
+			RHS += spring->RHS;
+			LHS += spring->LHS;
+		}
 	}
 
 /////////////////////////////////////////////////////////////////////
