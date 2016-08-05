@@ -61,6 +61,28 @@ void setupConstraints(){
 	fext = main_object.M * fext;
 }
 
+void createLHS() {
+	float h = 0.01;
+	SpMat LHS = main_object.M / (h * h);
+	for(int i = 0; i < constraints.size(); i++) {
+		Constraint *ci = constraints[i];
+		if(ci->type == FIXEDPOINT) {
+			FixedPoint *fixedPoint = (FixedPoint *)ci;
+			LHS += fixedPoint->LHS;
+		}
+		else if(ci->type == SPRING) {
+			Spring *spring = (Spring *)ci;
+			LHS += spring->LHS;
+		}
+	}
+	lltOfM.compute(LHS);
+}
+
+void init() {
+	setupConstraints();
+	createLHS();
+}
+
 void update(int timestep) {
 ////////////////////////////////////////////////////////////////////////
 	std::clock_t start;
@@ -70,7 +92,7 @@ void update(int timestep) {
 
 
 	glutTimerFunc(timestep, update, timestep);
-	float h = (float)timestep / 1000;
+	float h = 0.01;
 	VectorX q = main_object.q;
 	VectorX q_n;
 	VectorX v = main_object.v;
@@ -83,29 +105,24 @@ void update(int timestep) {
 	q = s;
 	VectorX p;
 	VectorX RHS = (1.0 / (h * h)) * M * s;
-	SpMat LHS = M / (h * h);
 
 	// project on constraints
 	//#pragma omp parallel for
 	for(int i = 0; i < constraints.size(); i++) {
 		Constraint *ci = constraints[i];
 		VectorX RHSTemp;
-		SpMat LHSTemp;
 		if(ci->type == FIXEDPOINT){
 			FixedPoint *fixedPoint = (FixedPoint *)ci;
 			RHSTemp = fixedPoint->RHS;
-			LHSTemp = fixedPoint->LHS;
 		}
 		else if (ci->type == SPRING) {
 			Spring *spring = (Spring *)ci;
 			spring->createRHS(q); 
 			RHSTemp = spring->RHS;
-			LHSTemp = spring->LHS;
 		}
 		//#pragma omp critical
 		//{
 			RHS += RHSTemp;
-			LHS += LHSTemp;
 		//}
 	}
 /////////////////////////////////////////////////////////////////////
@@ -114,7 +131,6 @@ std::cout<<"build matrix: "<< duration <<'\n';
 std::clock_t start1 = std::clock();
 
 
-	lltOfM.compute(LHS);
 	q_n = lltOfM.solve(RHS);
 
 duration = ( std::clock() - start1 ) / (double) CLOCKS_PER_SEC;

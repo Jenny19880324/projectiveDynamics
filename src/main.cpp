@@ -297,7 +297,7 @@ int main(int argc, char* argv[]) {
   if (init_resources(obj_filename, v_shader_filename, f_shader_filename)) {
     init_view();
     glutDisplayFunc(onDisplay);
-    setupConstraints();
+    init();
     glutTimerFunc(timestep, update, timestep);
     glutSpecialFunc(onSpecial);
     glutSpecialUpFunc(onSpecialUp);
