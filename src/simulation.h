@@ -11,6 +11,8 @@ typedef Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> Matrix;
 extern Mesh main_object;
 const float ground_height = -1.0;
 const float EPSILON = 0.01;
+const float h = 0.01;
+VectorX momentum;
 
 std::vector<Constraint *> constraints;
 VectorX fext;
@@ -44,6 +46,7 @@ VectorX collide(const VectorX q){
 void setupConstraints(){
 	//set up fixed point constraints
 	constraints.push_back(new FixedPoint(0));
+	constraints.push_back(new FixedPoint(19));
 	//set up spring constraints
 	for(int i = 0; i < main_object.edges.size(); i++) {
 		Edge edge = main_object.edges[i];
@@ -62,7 +65,6 @@ void setupConstraints(){
 }
 
 void createLHS() {
-	float h = 0.01;
 	SpMat LHS = main_object.M / (h * h);
 	for(int i = 0; i < constraints.size(); i++) {
 		Constraint *ci = constraints[i];
@@ -81,18 +83,14 @@ void createLHS() {
 void init() {
 	setupConstraints();
 	createLHS();
+	momentum = h * h * main_object.M_inv * fext;
 }
 
-void update(int timestep) {
-////////////////////////////////////////////////////////////////////////
-	std::clock_t start;
-    double duration;
-    start = std::clock();
-////////////////////////////////////////////////////////////////////////
 
+void update(int timestep) {
 
 	glutTimerFunc(timestep, update, timestep);
-	float h = 0.01;
+
 	VectorX q = main_object.q;
 	VectorX q_n;
 	VectorX v = main_object.v;
@@ -101,7 +99,7 @@ void update(int timestep) {
 
 
 
-	VectorX s = q + v * h + h * h * M_inv * fext ;
+	VectorX s = q + v * h + momentum ;
 	q = s;
 	VectorX p;
 	VectorX RHS = (1.0 / (h * h)) * M * s;
@@ -129,15 +127,7 @@ void update(int timestep) {
 		RHS += RHSTemp;
 	}
 /////////////////////////////////////////////////////////////////////
-duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
-std::cout<<"build matrix: "<< duration <<'\n';
-std::clock_t start1 = std::clock();
-
-
 	q_n = lltOfM.solve(RHS);
-
-duration = ( std::clock() - start1 ) / (double) CLOCKS_PER_SEC;
-std::cout<<"solve matrix: "<< duration <<'\n';
 
 	VectorX v_n = (q_n - q)/h;
 	main_object.q = q_n;
@@ -158,8 +148,6 @@ std::cout<<"solve matrix: "<< duration <<'\n';
 	main_object.buildNormals();
 	main_object.upload();
 	//main_object.writeObj();
-duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
-std::cout<<"total: "<< duration <<'\n';
 }
 
 #endif
